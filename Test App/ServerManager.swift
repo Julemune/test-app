@@ -7,8 +7,16 @@ class ServerManager {
     
     let apiURL = "http://api.doitserver.in.ua"
     
+    enum methods: String {
+        case login  = "/login"
+        case all    = "/all"
+        case gif    = "/gif"
+        case image  = "/image"
+        case create = "/create"
+    }
+    
     func login(withEmail email:String, password:String, completionHandler:@escaping (DataResponse<Any>) -> Void) {
-        let url = URL(string: apiURL + "/login")!
+        let url = URL(string: apiURL + methods.login.rawValue)!
         let parameters = ["email":email,
                           "password":password]
         
@@ -17,8 +25,34 @@ class ServerManager {
         }
     }
     
+    func register(withName name:String, email:String, password:String, image:UIImage, completionHandler:@escaping (DataResponse<Any>) -> Void) {
+        let url = URL(string: apiURL + methods.create.rawValue)!
+        
+        Alamofire.upload(multipartFormData: { multipartFormData in
+            if let imageData = UIImageJPEGRepresentation(image, 1) {
+                multipartFormData.append(imageData, withName: "avatar", fileName: "file.png", mimeType: "image/png")
+            }
+            
+            multipartFormData.append(name.data(using: .utf8)!, withName: "username")
+            multipartFormData.append(email.data(using: .utf8)!, withName: "email")
+            multipartFormData.append(password.data(using: .utf8)!, withName: "password")
+            
+        }, to: url, method: .post, headers: nil, encodingCompletion: { encodingResult in
+            switch encodingResult {
+            case .success(let upload, _, _):
+                upload.response { response in
+                    upload.responseJSON { response in
+                        completionHandler(response)
+                    }
+                }
+            case .failure(let encodingError):
+                print("error:\(encodingError)")
+            }
+        })
+    }
+    
     func getImages(completionHandler:@escaping (DataResponse<Any>) -> Void) {
-        let url = URL(string: apiURL + "/all")!
+        let url = URL(string: apiURL + methods.all.rawValue)!
         
         let headers: HTTPHeaders = [
             "token": DataManager.sharedInstance.token!,
@@ -64,48 +98,17 @@ class ServerManager {
                 multipartFormData.append(tag.data(using: .utf8)!, withName: "hashtag")
                 multipartFormData.append(latitude.data(using: .utf8)!, withName: "latitude")
                 multipartFormData.append(longitude.data(using: .utf8)!, withName: "longitude")
-        },
-            to: url,
-            method: .post,
-            headers: headers,
-            encodingCompletion: { encodingResult in
+        }, to: url, method: .post, headers: headers, encodingCompletion: { encodingResult in
                 switch encodingResult {
                 case .success(let upload, _, _):
                     upload.responseJSON { response in
                         completionHandler(response)
                     }
                 case .failure(let encodingError):
-                    print(encodingError)
+                    print("error:\(encodingError)")
                 }
         }
         )
-    }
-    
-    func register(withName name:String, email:String, password:String, image:UIImage, completionHandler:@escaping (DataResponse<Any>) -> Void) {
-        
-        let url = URL(string: "http://api.doitserver.in.ua/create")!
-        
-        Alamofire.upload(multipartFormData: { multipartFormData in
-            if let imageData = UIImageJPEGRepresentation(image, 1) {
-                multipartFormData.append(imageData, withName: "avatar", fileName: "file.png", mimeType: "image/png")
-            }
-            
-            multipartFormData.append(name.data(using: .utf8)!, withName: "username")
-            multipartFormData.append(email.data(using: .utf8)!, withName: "email")
-            multipartFormData.append(password.data(using: .utf8)!, withName: "password")
-            
-            }, to: url, method: .post, headers: nil, encodingCompletion: { encodingResult in
-                    switch encodingResult {
-                    case .success(let upload, _, _):
-                        upload.response { response in
-                            upload.responseJSON { response in
-                                completionHandler(response)
-                            }
-                        }
-                    case .failure(let encodingError):
-                        print("error:\(encodingError)")
-                    }
-        })
     }
     
 }
